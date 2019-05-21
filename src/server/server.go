@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"bufio"
 )
 
 var clients []net.Conn
@@ -26,6 +27,7 @@ type Match struct {
 	tip            string //Defined by the Master
 	idTurnPlayer   int
 	winner         *Player
+	ended          bool
 
 	// idTurnPlayer   []string
 	// nextTurnPlayer int
@@ -101,6 +103,7 @@ func main() {
 
 			// match.idMasterPlayer = rand.Intn(max-min) + min
 			match.idMasterPlayer = 0
+			match.ended = false
 
 			notifyAllButYou(con, comeStr, waitingRoom)
 
@@ -113,7 +116,7 @@ func main() {
 
 			if len(waitingRoom) == maxPlayersPerMatch {
 
-				notifyAll("initializeMatch:1:"+strconv.Itoa(len(waitingRoom))+":"+playerNames+":torres\n", match.playersCon)
+				notifyAll("initializeMatch:1:"+strconv.Itoa(len(waitingRoom))+":"+playerNames+":mestre\n", match.playersCon)
 				// <-timer.C
 				// notifyAll("initializeMatch:1", waitingRoom)
 				notifyPlayer("setMaster\n", match.playersCon[match.idMasterPlayer])
@@ -132,6 +135,7 @@ func main() {
 
 			// Começa a receber mensagem do cliente
 			for {
+
 				length, err := con.Read(data)
 				if err != nil {
 					fmt.Printf("O cliente %s saiu.\n", name)
@@ -140,14 +144,19 @@ func main() {
 					return
 				}
 				res = string(data[:length])
-				fmt.Println(res)
+				fmt.Println("msg res:", res)
+
+				fmt.Println("Turno do cara: ", match.idTurnPlayer)
+
 				handleCommand(res, match)
+
 			}
 		}(conn)
 	}
 }
 
 func handleCommand(clientMessage string, match Match) {
+
 	command := strings.Split(clientMessage, ":")
 	if len(command) > 1 {
 		command[len(command)-1] = strings.Replace(command[len(command)-1], "\n", "", -1)
@@ -156,6 +165,7 @@ func handleCommand(clientMessage string, match Match) {
 	//Sempre colocar \n
 	//Não usar : quando não for outro comando
 	fmt.Println("Client Comando : " + command[0])
+
 	switch command[0] {
 	case "masterAnswer":
 		answer := "serverMessage:O mestre respondeu ' " + command[1] + " '\n"
@@ -185,9 +195,48 @@ func handleCommand(clientMessage string, match Match) {
 	case "tryGuess":
 		attempt := strings.ToUpper(command[1])
 		if guess == attempt {
+			match.ended = true
 			fmt.Println("O JOGADOR GANHOU!")
+		} else {
+			match.idTurnPlayer++
+			if match.idTurnPlayer == maxPlayersPerMatch {
+				match.idTurnPlayer = 1
+			}
+			// println(match.playersCon[0].RemoteAddr())
+
+			notifyAllButYou(match.playersCon[match.idMasterPlayer], tip, match.playersCon)
+			notifyPlayer("yourTurnAsk\n", match.playersCon[match.idTurnPlayer]) //Primeiro a perguntar
 		}
+
 	}
+
+}
+
+func escreverTexto(caminhoDoArquivo string, name string, score int, matchId int) error {
+	// Cria o arquivo de texto
+	arquivo, err := os.Create(caminhoDoArquivo)
+	// Caso tenha encontrado algum erro retornar ele
+	if err != nil {
+		return err
+	}
+	// Garante que o arquivo sera fechado apos o uso
+	defer arquivo.Close()
+
+	var conteudo []string
+	conteudo = append(conteudo, "-------------------------------------------------")
+	conteudo = append(conteudo, "Partida encerrada, matchId: "+ matchId)
+	conteudo = append(conteudo, "-------------------------------------------------")
+	conteudo = append(conteudo, "Vencedor: "+name+" Score: " +score)
+	// Cria um escritor responsavel por escrever cada linha do slice no arquivo de texto
+	escritor := bufio.NewWriter(arquivo)
+	for _, linha := range linhas {
+		fmt.Fprintln(escritor, linha)
+	}
+
+	fmt.Fprintln(escritor, linha)
+
+	// Caso a funcao flush retorne um erro ele sera retornado aqui tambem
+	return escritor.Flush()
 }
 
 // Notifica um player especifico

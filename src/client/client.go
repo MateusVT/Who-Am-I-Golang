@@ -216,8 +216,8 @@ func read(conn net.Conn) {
 		// fmt.Println(string(readStr[:length]))
 		// fmt.Printf("Message Len : %v", len(message))
 		for i := 0; i < len(message)-1; i++ {
-			// fmt.Println(i)
-			// fmt.Println(message[i])
+			fmt.Println(i)
+			fmt.Println(message[i])
 			handleCommand(message[i])
 		}
 
