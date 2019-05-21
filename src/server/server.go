@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"net"
 	"os"
 	"strconv"
@@ -19,8 +18,8 @@ var guess string
 var tip string
 
 type Match struct {
-	matchID int
-	// playersCon     []net.Conn
+	matchID        int
+	playersCon     []net.Conn
 	players        []Player
 	idMasterPlayer int
 	guess          string //Defined by the Master
@@ -67,6 +66,7 @@ func main() {
 		}
 		clients = append(clients, conn)
 		waitingRoom = append(waitingRoom, conn)
+		match.playersCon = append(match.playersCon, conn)
 
 		go func(con net.Conn) {
 
@@ -90,15 +90,17 @@ func main() {
 			}
 			comeStr := name + " entrou na sala de espera!\n"
 
-			min := 0
-			max := 2
+			// min := 0
+			// max := 2
 
 			player := Player{}
 			player.con = con
 			player.name = name
 			player.score = 0
 			match.players = append(match.players, player)
-			match.idMasterPlayer = rand.Intn(max-min) + min
+
+			// match.idMasterPlayer = rand.Intn(max-min) + min
+			match.idMasterPlayer = 0
 
 			notifyAllButYou(con, comeStr, waitingRoom)
 
@@ -111,11 +113,12 @@ func main() {
 
 			if len(waitingRoom) == maxPlayersPerMatch {
 
-				notifyAll("initializeMatch:1:"+strconv.Itoa(len(waitingRoom))+":"+playerNames+":torres\n", waitingRoom)
+				notifyAll("initializeMatch:1:"+strconv.Itoa(len(waitingRoom))+":"+playerNames+":torres\n", match.playersCon)
 				// <-timer.C
 				// notifyAll("initializeMatch:1", waitingRoom)
-				notifyPlayer("setMaster\n", waitingRoom[1])
-				notifyAllButYou(waitingRoom[1], "serverMessage:O mestre está definindo o personagem a ser advinhado, aguarde sua vez.\n", waitingRoom)
+				notifyPlayer("setMaster\n", match.playersCon[match.idMasterPlayer])
+				notifyAllButYou(match.playersCon[match.idMasterPlayer], "serverMessage:O mestre está definindo o personagem a ser advinhado, aguarde sua vez.\n", match.playersCon)
+				match.idTurnPlayer = 1
 
 				// 	caracter, err := waitingRoom[0].Read(data)
 				// 	if err != nil {
@@ -138,17 +141,18 @@ func main() {
 				}
 				res = string(data[:length])
 				fmt.Println(res)
-				handleCommand(res)
+				handleCommand(res, match)
 			}
 		}(conn)
 	}
 }
 
-func handleCommand(clientMessage string) {
+func handleCommand(clientMessage string, match Match) {
 	command := strings.Split(clientMessage, ":")
 	if len(command) > 1 {
 		command[len(command)-1] = strings.Replace(command[len(command)-1], "\n", "", -1)
 	}
+	// match.idMasterPlayer
 	//Sempre colocar \n
 	//Não usar : quando não for outro comando
 	fmt.Println("Client Comando : " + command[0])
@@ -156,8 +160,9 @@ func handleCommand(clientMessage string) {
 	case "masterAnswer":
 		answer := "serverMessage:O mestre respondeu ' " + command[1] + " '\n"
 		fmt.Println("O mestre respondeu : " + command[1])
-		notifyAll(answer, waitingRoom)
-		notifyPlayer("yourTurnTry\n", waitingRoom[0])
+		notifyAll(answer, match.playersCon)
+		notifyAllButYou(match.playersCon[match.idMasterPlayer], answer, match.playersCon)
+		notifyPlayer("yourTurnTry\n", match.playersCon[match.idTurnPlayer])
 		//setar o próximo a perguntar
 
 	case "setGuess":
@@ -166,13 +171,17 @@ func handleCommand(clientMessage string) {
 	case "sendFirstTip":
 		tip = "serverMessage:A dica concedida pelo mestre é " + command[1] + "\n"
 		fmt.Println(tip)
-		notifyAllButYou(waitingRoom[1], tip, waitingRoom)
-		notifyPlayer("yourTurnAsk\n", waitingRoom[0]) //Primeiro a perguntar
+		println(match.idMasterPlayer)
+		println(match.players[match.idMasterPlayer].name)
+		// println(match.playersCon[0].RemoteAddr())
+
+		notifyAllButYou(match.playersCon[match.idMasterPlayer], tip, match.playersCon)
+		notifyPlayer("yourTurnAsk\n", match.playersCon[match.idTurnPlayer]) //Primeiro a perguntar
 	case "sendQuestion":
 		question := "serverMessage:O jogador [" + command[1] + "] perguntou ao mestre ' " + command[2] + " '\n"
 		fmt.Println(question)
-		notifyAll(question, waitingRoom)
-		notifyPlayer("ansAsMaster:"+command[1]+"\n", waitingRoom[1]) //Pede resposta ao mestre
+		notifyAll(question, match.playersCon)
+		notifyPlayer("ansAsMaster:"+command[1]+"\n", match.playersCon[match.idMasterPlayer]) //Pede resposta ao mestre
 	case "tryGuess":
 		attempt := strings.ToUpper(command[1])
 		if guess == attempt {
