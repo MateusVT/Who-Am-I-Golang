@@ -197,6 +197,14 @@ func handleCommand(clientMessage string, match Match) {
 		if guess == attempt {
 			match.ended = true
 			fmt.Println("O JOGADOR GANHOU!")
+			match.players[match.idTurnPlayer].score = 10000
+			err := escreverTexto(match)
+				if err != nil {
+				fmt.Println("Erro:", err)
+				}else{
+				fmt.Println("Arquivo salvo com sucesso.")}
+				notifyAll("O player "+match.players[match.idTurnPlayer].name+" acertou!!!\n", match.playersCon)
+					
 		} else {
 			match.idTurnPlayer++
 			if match.idTurnPlayer == maxPlayersPerMatch {
@@ -212,9 +220,9 @@ func handleCommand(clientMessage string, match Match) {
 
 }
 
-func escreverTexto(caminhoDoArquivo string, name string, score int, matchId int) error {
+func escreverTexto(match Match) error {
 	// Cria o arquivo de texto
-	arquivo, err := os.Create(caminhoDoArquivo)
+	arquivo, err := os.Create("/parser.txt")
 	// Caso tenha encontrado algum erro retornar ele
 	if err != nil {
 		return err
@@ -223,18 +231,19 @@ func escreverTexto(caminhoDoArquivo string, name string, score int, matchId int)
 	defer arquivo.Close()
 
 	var conteudo []string
-	conteudo = append(conteudo, "-------------------------------------------------")
-	conteudo = append(conteudo, "Partida encerrada, matchId: "+ matchId)
-	conteudo = append(conteudo, "-------------------------------------------------")
-	conteudo = append(conteudo, "Vencedor: "+name+" Score: " +score)
+	conteudo = append(conteudo, "-\n")
+	conteudo = append(conteudo, "Partida encerrada, matchId: "+ strconv.Itoa(match.matchID)+"\n")
+	conteudo = append(conteudo, "- \n")
+	conteudo = append(conteudo, "Vencedor: "+match.players[match.idTurnPlayer].name+"\n" +" Score: " +strconv.Itoa(match.players[match.idTurnPlayer].score))
 	// Cria um escritor responsavel por escrever cada linha do slice no arquivo de texto
 	escritor := bufio.NewWriter(arquivo)
-	for _, linha := range linhas {
+	for _, linha := range conteudo {
 		fmt.Fprintln(escritor, linha)
 	}
 
-	fmt.Fprintln(escritor, linha)
-
+	
+	// Garante que o arquivo sera fechado apos o uso
+	defer arquivo.Close()
 	// Caso a funcao flush retorne um erro ele sera retornado aqui tambem
 	return escritor.Flush()
 }
