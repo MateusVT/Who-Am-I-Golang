@@ -225,7 +225,7 @@ func handleCommand(clientMessage string, match Match) {
 
 func escreverTexto(match Match) error {
 	// Cria o arquivo de texto
-	arquivo, err := os.Create("/parser.txt")
+	arquivo, err := os.OpenFile("/parser.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	// Caso tenha encontrado algum erro retornar ele
 	if err != nil {
 		return err
