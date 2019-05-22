@@ -78,6 +78,7 @@ func main() {
 				reader.ReadLine()
 				scanner.Scan()
 				question := scanner.Text()
+				fmt.Println("Aguarde a resposta do Mestre : ")
 				sendMessageToServer("sendQuestion:"+name+":"+question+"\n", serverCon)
 				waitingInput = false
 			case "ansQuestion":
@@ -170,6 +171,7 @@ func handleCommand(serverMessage string) {
 		fmt.Println("Seu turno!")
 		fmt.Println("Pergunte algo ao Mestre : ")
 		inputType = "askQuestion"
+
 		waitingInput = true
 
 	case "yourTurnTry":
