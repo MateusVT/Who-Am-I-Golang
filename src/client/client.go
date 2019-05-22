@@ -7,20 +7,24 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 	// "github.com/go-delve/delve/pkg/dwarf/reader"
 )
 
 var writeStr, readStr = make([]byte, 1024), make([]byte, 1024)
 
 var serverCon net.Conn
+var menu = 0
+var enterTheGame = false
 var (
 	reader  = bufio.NewReader(os.Stdin)
 	scanner = bufio.NewScanner(os.Stdin)
 	laddr   string
 	// PlayerScore  int
-	name         string
+	name string
+
 	isMaster     bool
-	waitingInput bool
+	waitingInput = true
 	inputType    string
 	runningMatch bool
 	playerID     int
@@ -34,7 +38,7 @@ func main() {
 		port   = "8000"
 		remote = host + ":" + port
 	)
-
+	timer := time.NewTimer(1 * time.Second)
 	serverCon, err := net.Dial("tcp", remote)
 	defer serverCon.Close()
 
@@ -42,34 +46,59 @@ func main() {
 		fmt.Println("Servidor não encontrado!.")
 		os.Exit(-1)
 	}
+
 	fmt.Printf("----------------------------------------------------------------\n")
 	fmt.Printf("BEM VINDO AO 'QUEM SOU EU?'\n")
 	fmt.Printf("----------------------------------------------------------------\n")
 	fmt.Println()
-
-	fmt.Printf("Digite seu nome para entrar em uma partida : ")
+	fmt.Printf("Digite seu nome para entrar no jogo : ")
 	fmt.Scanf("%s", &name)
 
 	sendMessageToServer(name, serverCon)
 
+	fmt.Printf(" _____________________________\n")
+	fmt.Printf("|           MENU   		|\n")
+	fmt.Printf("|     1 - Exibir Ranking      |\n")
+	fmt.Printf("|     2 - Buscar Partida      |\n")
+	fmt.Printf("|_____________________________|\n")
+	fmt.Println()
 	go read(serverCon)
-
 	for {
 		if waitingInput {
+
+			if menu == 0 && !runningMatch {
+				<-timer.C
+				fmt.Printf("Selecione uma opção : \n")
+				reader.ReadLine()
+				scanner.Scan()
+				opt := scanner.Text()
+				optConv, err := strconv.Atoi(opt)
+				if err == nil {
+				}
+				menu = optConv
+			}
+
+			if menu == 1 {
+
+				sendMessageToServer("showRanking", serverCon)
+				// waitingInput = true
+				menu = 0
+			} else {
+				fmt.Printf("Você entrou na sala de espera, aguarde outros jogadores.\n")
+				waitingInput = false
+			}
+
+			// if waitingInput {
 
 			switch inputType {
 			case "masterInit":
 				reader.ReadLine()
 				scanner.Scan()
 				guess := scanner.Text()
-				// fmt.Println("Personagem escolhido Guess: " + guess)
 				sendMessageToServer("setGuess:"+guess+"\n", serverCon)
 				fmt.Println("Informe a primeira dica : ")
-				// writeStr, _, _ = reader.ReadLine()
-				// fmt.Scanf("%s", &tip)
 				scanner.Scan() // use `for scanner.Scan()` to keep reading
 				tip := scanner.Text()
-				// fmt.Println("Dica : " + tip)
 				sendMessageToServer("sendFirstTip:"+tip+"\n", serverCon)
 				fmt.Println("O jogador da vez está elaborando uma pergunta, aguarde.")
 
@@ -98,18 +127,6 @@ func main() {
 			default:
 			}
 		}
-		// writeStr, _, _ = reader.ReadLine()
-		// if string(writeStr) == "quit" {
-		// 	fmt.Println("Communication terminated.")
-		// 	os.Exit(1)
-		// }
-
-		// in, err := con.Write([]byte(writeStr))
-		// if err != nil {
-		// 	fmt.Printf("Error when send to server: %d\n", in)
-		// 	os.Exit(0)
-		// }
-
 	}
 }
 

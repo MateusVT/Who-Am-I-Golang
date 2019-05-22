@@ -81,6 +81,11 @@ func main() {
 			fmt.Println("O Jogador : ", name, "entrou no servidor!")
 			if err != nil {
 				fmt.Printf("O cliente %v saiu.\n", con.RemoteAddr())
+				// for _, conMatch := range match.playersCon {
+				// 	if conMatch.RemoteAddr() == con.RemoteAddr() {
+
+				// 	}
+				// }
 				con.Close()
 				disconnect(con, con.RemoteAddr().String())
 				return
@@ -117,7 +122,7 @@ func main() {
 
 			if len(waitingRoom) == maxPlayersPerMatch {
 
-				notifyAll("initializeMatch:1:"+strconv.Itoa(len(waitingRoom))+":"+playerNames+":mestre\n", match.playersCon)
+				notifyAll("initializeMatch:1:"+strconv.Itoa(len(waitingRoom))+":"+playerNames+":"+strings.Split(playerNames, ",")[0]+"\n", match.playersCon)
 				// <-timer.C
 				// notifyAll("initializeMatch:1", waitingRoom)
 				notifyPlayer("setMaster\n", match.playersCon[match.idMasterPlayer])
@@ -138,6 +143,7 @@ func main() {
 			// Começa a receber mensagem do cliente
 			for {
 
+				// match.playersCon
 				length, err := con.Read(data)
 				if err != nil {
 					fmt.Printf("O cliente %s saiu.\n", name)
@@ -150,8 +156,12 @@ func main() {
 
 				// fmt.Println("Turno do cara: ", match.idTurnPlayer)
 
-				handleCommand(res, match)
+				if res == "showRanking" {
+					handleRequestCommand(res, match, con)
+				} else {
+					handleCommand(res, match)
 
+				}
 			}
 		}(conn)
 	}
@@ -218,6 +228,22 @@ func handleCommand(clientMessage string, match Match) {
 			}
 			notifyPlayer("yourTurnAsk\n", match.playersCon[idTurnPlayer]) //Primeiro a perguntar
 		}
+
+	}
+
+}
+
+func handleRequestCommand(clientMessage string, match Match, sender net.Conn) {
+
+	command := strings.Split(clientMessage, ":")
+	if len(command) > 1 {
+		command[len(command)-1] = strings.Replace(command[len(command)-1], "\n", "", -1)
+	}
+
+	switch command[0] {
+
+	case "showRanking":
+		notifyPlayer("serverMessage:Fulano - 2000 pontos\n", sender)
 
 	}
 
