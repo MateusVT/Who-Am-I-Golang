@@ -1,19 +1,19 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"os"
 	"strconv"
 	"strings"
-	"bufio"
 )
 
 var clients []net.Conn
 var matchs []Match
 var playerNames = ""
 var waitingRoom []net.Conn
-var maxPlayersPerMatch = 2
+var maxPlayersPerMatch = 3
 var match Match
 var guess string
 var tip string
@@ -110,7 +110,7 @@ func main() {
 			if len(waitingRoom) < maxPlayersPerMatch {
 				// notifyPlayer("serverMessage:"+"Atualmente há: "+strconv.Itoa(len(clients))+" jogadores conectados no servidor.\n", con)
 				// <-timer.C
-				notifyPlayer("serverMessage:"+strconv.Itoa(len(waitingRoom))+" jogadores na sala de espera.\n", con)
+				notifyPlayer("serverMessage: "+strconv.Itoa(len(waitingRoom))+" jogadores na sala de espera.\n", con)
 
 			}
 
@@ -144,9 +144,9 @@ func main() {
 					return
 				}
 				res = string(data[:length])
-				fmt.Println("msg res:", res)
+				// fmt.Println("msg res:", res)
 
-				fmt.Println("Turno do cara: ", match.idTurnPlayer)
+				// fmt.Println("Turno do cara: ", match.idTurnPlayer)
 
 				handleCommand(res, match)
 
@@ -164,15 +164,16 @@ func handleCommand(clientMessage string, match Match) {
 	// match.idMasterPlayer
 	//Sempre colocar \n
 	//Não usar : quando não for outro comando
-	fmt.Println("Client Comando : " + command[0])
+	// fmt.Println("Client Comando : " + command[0])
 
 	switch command[0] {
 	case "masterAnswer":
 		answer := "serverMessage:O mestre respondeu ' " + command[1] + " '\n"
 		fmt.Println("O mestre respondeu : " + command[1])
-		notifyAll(answer, match.playersCon)
+		// notifyAll(answer, match.playersCon)
 		notifyAllButYou(match.playersCon[match.idMasterPlayer], answer, match.playersCon)
-		notifyPlayer("yourTurnTry\n", match.playersCon[match.idTurnPlayer])
+		fmt.Printf("match.idTurnPlayer after master answaer %v", match.idTurnPlayer)
+		notifyPlayer("yourTurnTry\n", match.playersCon[match.idTurnPlayer]) //Aqui ta sempre 1, não ta subindo.
 		//setar o próximo a perguntar
 
 	case "setGuess":
@@ -190,7 +191,7 @@ func handleCommand(clientMessage string, match Match) {
 	case "sendQuestion":
 		question := "serverMessage:O jogador [" + command[1] + "] perguntou ao mestre ' " + command[2] + " '\n"
 		fmt.Println(question)
-		notifyAll(question, match.playersCon)
+		notifyAllButYou(match.playersCon[match.idTurnPlayer], question, match.playersCon)
 		notifyPlayer("ansAsMaster:"+command[1]+"\n", match.playersCon[match.idMasterPlayer]) //Pede resposta ao mestre
 	case "tryGuess":
 		attempt := strings.ToUpper(command[1])
@@ -199,20 +200,23 @@ func handleCommand(clientMessage string, match Match) {
 			fmt.Println("O JOGADOR GANHOU!")
 			match.players[match.idTurnPlayer].score = 10000
 			err := escreverTexto(match)
-				if err != nil {
+			if err != nil {
 				fmt.Println("Erro:", err)
-				}else{
-				fmt.Println("Arquivo salvo com sucesso.")}
-				notifyAll("O player "+match.players[match.idTurnPlayer].name+" acertou!!!\n", match.playersCon)
-					
+			} else {
+				fmt.Println("Arquivo salvo com sucesso.")
+			}
+			notifyAll("O player "+match.players[match.idTurnPlayer].name+" acertou!!!\n", match.playersCon)
+
 		} else {
-			match.idTurnPlayer++
+			notifyPlayer("serverMessage:Resposta errada! Aguarde sua próxima tentativa.\n", match.playersCon[match.idTurnPlayer])
+			notifyAllButYou(match.playersCon[match.idTurnPlayer], "serverMessage:O jogador["+match.players[match.idTurnPlayer].name+"] chutou '"+attempt+"' e errou.\n", match.playersCon)
+			match.idTurnPlayer = match.idTurnPlayer + 1 //Aqui ta somando mas não ta batendo lá
 			if match.idTurnPlayer == maxPlayersPerMatch {
 				match.idTurnPlayer = 1
+				fmt.Printf("Entrei no if? %v", match.idTurnPlayer)
 			}
 			// println(match.playersCon[0].RemoteAddr())
-
-			notifyAllButYou(match.playersCon[match.idMasterPlayer], tip, match.playersCon)
+			// notifyAllButYou(match.playersCon[match.idMasterPlayer], tip, match.playersCon)
 			notifyPlayer("yourTurnAsk\n", match.playersCon[match.idTurnPlayer]) //Primeiro a perguntar
 		}
 
@@ -232,16 +236,15 @@ func escreverTexto(match Match) error {
 
 	var conteudo []string
 	conteudo = append(conteudo, "-\n")
-	conteudo = append(conteudo, "Partida encerrada, matchId: "+ strconv.Itoa(match.matchID)+"\n")
+	conteudo = append(conteudo, "Partida encerrada, matchId: "+strconv.Itoa(match.matchID)+"\n")
 	conteudo = append(conteudo, "- \n")
-	conteudo = append(conteudo, "Vencedor: "+match.players[match.idTurnPlayer].name+"\n" +" Score: " +strconv.Itoa(match.players[match.idTurnPlayer].score))
+	conteudo = append(conteudo, "Vencedor: "+match.players[match.idTurnPlayer].name+"\n"+" Score: "+strconv.Itoa(match.players[match.idTurnPlayer].score))
 	// Cria um escritor responsavel por escrever cada linha do slice no arquivo de texto
 	escritor := bufio.NewWriter(arquivo)
 	for _, linha := range conteudo {
 		fmt.Fprintln(escritor, linha)
 	}
 
-	
 	// Garante que o arquivo sera fechado apos o uso
 	defer arquivo.Close()
 	// Caso a funcao flush retorne um erro ele sera retornado aqui tambem

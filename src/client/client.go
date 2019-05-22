@@ -48,8 +48,8 @@ func main() {
 	fmt.Println()
 
 	fmt.Printf("Digite seu nome para entrar em uma partida : ")
-	// con.Write([]byte("Digite seu nome para iniciar uma partida : \n"))
 	fmt.Scanf("%s", &name)
+
 	sendMessageToServer(name, serverCon)
 
 	go read(serverCon)
@@ -84,13 +84,14 @@ func main() {
 				// reader.ReadLine()
 				scanner.Scan()
 				answer := scanner.Text()
+				fmt.Println("Sua resposta foi enviada para os outros jogadores!")
+				fmt.Println("Aguarde a próxima pergunta.")
 				sendMessageToServer("masterAnswer:"+answer+"\n", serverCon)
 				waitingInput = false
 
 			case "tryGuess":
 				scanner.Scan()
 				trial := scanner.Text()
-
 				sendMessageToServer("tryGuess:"+trial+"\n", serverCon)
 				waitingInput = false
 			default:
@@ -113,10 +114,11 @@ func main() {
 
 func handleCommand(serverMessage string) {
 	command := strings.Split(serverMessage, ":")
+	// fmt.Println("Server Original Message : " + serverMessage)
 	if len(command) > 1 {
 		command[len(command)-1] = strings.Replace(command[len(command)-1], "\n", "", -1)
 	}
-	fmt.Println("Server Comando : " + command[0])
+	// fmt.Println("Server Comando : " + command[0])
 	switch command[0] {
 	case "initializeMatch":
 		runningMatch = true
@@ -129,7 +131,6 @@ func handleCommand(serverMessage string) {
 			os.Exit(2)
 		}
 		matchID = id
-		// fmt.Printf("A partida %v acabou de iniciar!\n", id)
 		fmt.Println("----------------------------------------------------------------")
 		fmt.Println(" PARTIDA INICIADA")
 		fmt.Println("----------------------------------------------------------------")
@@ -144,7 +145,7 @@ func handleCommand(serverMessage string) {
 
 	case "setMaster":
 		isMaster = true
-		fmt.Println("Você foi selecionado para ser o Mestre dessa partida!")
+		// fmt.Println("Você foi selecionado para ser o Mestre dessa partida!")
 		fmt.Println("----------------------------------------------------------------")
 		fmt.Println(" VOCÊ FOI SELECIONADO COMO MESTRE DESTA PARTIDA")
 		fmt.Println("----------------------------------------------------------------")
@@ -211,13 +212,7 @@ func read(conn net.Conn) {
 		var serverMessage string
 		serverMessage = string(readStr[:length])
 		message := strings.Split(serverMessage, "\n")
-		// fmt.Printf("Recebi %v comandos do servidor.\n", len(message))
-		// fmt.Printf("Recebi [" + serverMessage + " ] do servidor.\n")
-		// fmt.Println(string(readStr[:length]))
-		// fmt.Printf("Message Len : %v", len(message))
 		for i := 0; i < len(message)-1; i++ {
-			fmt.Println(i)
-			fmt.Println(message[i])
 			handleCommand(message[i])
 		}
 
